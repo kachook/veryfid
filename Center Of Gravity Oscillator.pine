@@ -1,0 +1,83 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © veryfid
+
+//@version=4
+study("Center Of Gravity Oscillator", shorttitle="COG", resolution = "")
+
+theme = input("CUSTOM", "Theme:", options=["CUSTOM", "CLEAN", "FIBONACCI", "FIBONACCI 2"])
+src =input(close)
+length =input(9)
+smooth = input("NONE", "Use Smoothing?", options=["RMA", "NONE"])
+length5 =input(2,"Smoothing Length")
+length2 =input(20,"Previous Hig/Low Length")
+length3 =input(200,"LSMA Length")
+length4 =input(1000,"fib Length")
+col1 = input(color.white, "Fib Color")
+fib = input(false, "Show Fibonacci Levels?")
+pline = input(true, "Show Price Line?")
+showcol = input(false, "Dual colored trigger?")
+showhl = input(false,"Show High/Low Levels")
+
+if theme == "FIBONACCI 2"
+    showcol := true
+
+windowsize = input(title="Trigger Window Size", type=input.integer, defval=3)
+offset = input(title="Trigger Offset", type=input.float, defval=0.85)
+sigma = input(title="Trigger Sigma", type=input.float, defval=6)
+
+COG1 = cog(src, length)
+COG= COG1
+rma = rma(COG1,length5)
+
+if smooth == "RMA"
+	COG := rma
+if theme == "FIBONACCI"
+	fib := true
+    length4 := 50
+if theme == "FIBONACCI 2"
+	fib := true
+    length4 := 30
+if theme == "CLEAN"
+	COG := rma
+	length5 := 9
+	
+p1 = plot(theme == "FIBONACCI" or theme == "FIBONACCI 2" ? na : lowest(COG,length2),color = color.green,transp = 100, title = "Previous Low")
+p2 = plot(theme == "FIBONACCI" or theme == "FIBONACCI 2" ? na : highest(COG,length2),color = color.red,transp = 100, title = "Previous High")
+c2 =plot(pline ? COG : na,color = change(COG) > 0 ? #00ffaa : color.red, linewidth= theme == "FIBONACCI 2" ? 3 : 1,title = "COG Trend Line",trackprice =true )
+c =plot(theme == "FIBONACCI 2" or theme == "CLEAN" ? na : COG,color = color.white, linewidth=2,title = "COG")
+trigger = alma(COG, windowsize, offset, sigma)
+lsma = linreg(COG,length3,0)
+fill(p1,c,title = "Previous Low")
+fill(p2,c,transp = 80,title = "Previous High")
+plot(theme == "FIBONACCI" or theme == "FIBONACCI 2"? na : lsma,color=color.red,title = "LSMA")
+plot(theme == "FIBONACCI 2" or theme == "CLEAN" ? na : trigger,title = "Trigger",color = showcol ? change(COG) > 0 ?  color.green : color.red : color.blue) 
+plot(theme == "CLEAN" ? COG : na, color = color.blue, linewidth = 3)
+plot(theme == "CLEAN" ? sma(COG,2) : na, color = color.white, linewidth = 2)
+
+h = highest(COG,length4)
+l = lowest(COG,length4)
+range = h - l
+
+l1 = h - range * 0.236 
+l2 = h - range * 0.382  
+l3 = h - range * 0.618
+l4 = h - range * 0.764
+l5 = h - range * 0.5
+
+f1 = plot(fib ? l1 : na, color = col1, transp = 60, title = "0.236")
+f2 = plot(fib ? l2 : na, color = col1, transp = 60, title = "0.382")
+f3 = plot(fib ? l3 : na, color = col1, transp = 60, title = "0.618")
+f4 = plot(fib ? l4 : na, color = col1, transp = 60, title = "0.764")
+f5 = plot(fib ? l5 : na, color = theme == "FIBONACCI 2" ? #ffe0b2 : col1, transp = theme == "FIBONACCI 2" ? 20 : 60, title = "0.5")
+
+p3 = plot(showhl or theme == "FIBONACCI" ? h : na, "high")
+p4 = plot(showhl or theme == "FIBONACCI" ? l : na, "Low")
+p5 = plot(theme == "FIBONACCI 2" ? h : na, "high", color = color.red)
+p6 = plot(theme == "FIBONACCI 2" ? l : na, "Low", color = color.green)
+//Conditions
+enter = crossover(COG1,trigger)
+
+fill(p5,f1,color.red) 
+fill(p5,f2,color.red) 
+fill(p6,f4,color.green) 
+fill(p6,f3,color.green) 
