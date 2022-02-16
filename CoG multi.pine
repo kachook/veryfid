@@ -1,0 +1,16 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © veryfid
+
+//@version=4
+study("COG Multi")
+length1 = input(9)
+length2 = input(50)
+length3 = input(200)
+smoothing = input(9)
+cog1 = rma(cog(close,length1),smoothing)
+cog2 = rma(cog(close,length2),smoothing)
+sma = sma(cog(close,length2),length3) + 26
+
+plot(cog2 + 26  , color= color.white, linewidth = 3 )
+plot(cog1 * 10 + 50.5)
+plot(sma, color = color.red)
