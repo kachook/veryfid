@@ -21,6 +21,7 @@ showhl = input(false,"Show High/Low Levels")
 if theme == "FIBONACCI 2"
     showcol := true
 
+
 windowsize = input(title="Trigger Window Size", type=input.integer, defval=3)
 offset = input(title="Trigger Offset", type=input.float, defval=0.85)
 sigma = input(title="Trigger Sigma", type=input.float, defval=6)
