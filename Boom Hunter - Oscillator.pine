@@ -1,0 +1,154 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © veryfid
+// © GordonRam(Lantzwat)
+
+//@version=5
+
+indicator(title='Boom Hunter - Oscillator', shorttitle='Boom Osc', overlay=false)
+
+src = input(close,"Source")
+
+hline(5,color = color.new(color.gray,50), linestyle = hline.style_dotted)
+
+// BH main oscillator -------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+// Parameter table of Boom Hunter X Presets 
+// for Boom Hunter Oscillator function
+//						LPPeriod		    Lookback	    Tr
+//						(multiplier)
+//Preset 1				0.52				26				1.0
+//Preset 2				pi  				157				1.0
+//		Fib Smoothing	3.25                158				1.61803398502
+//		Osc2			pi*13			    157				1.0 
+//      Osc2 Fib Smooth 2.0*13              157             1.61803398502
+//Preset 3				5.1					254				1.0
+//		Smoother							508
+//		Smoothest							762
+
+// Osc2 must be capped at <3 and >7
+// LPPeriod must be multiplied with H/D/W/M settings !!!!!!!!!
+
+//Inputs
+preset      = input.string(defval = "Preset 1", title = "Presets", options=["Preset 1", "Preset 2", "Preset 3", "Custom"], group="Boom Hunter", inline = "1")
+
+iIntraday   = input(9.0,"H", group='Boom Hunter', inline = "p1")
+iDay        = input(6.0,"D", group='Boom Hunter', inline = "p1")
+iWeek       = input(3.0,"W", group='Boom Hunter', inline = "p1")
+iMonth      = input(2.0,"M", group='Boom Hunter', inline = "p1")
+
+iIntraday2   = input(3.0,"H", group='Boom Hunter', inline = "p2")
+iDay2        = input(3.0,"D", group='Boom Hunter', inline = "p2")
+iWeek2       = input(3.0,"W", group='Boom Hunter', inline = "p2")
+iMonth2      = input(1.0,"M", group='Boom Hunter', inline = "p2")
+
+iIntraday3   = input(5.0,"H", group='Boom Hunter', inline = "p3")
+iDay3        = input(5.0,"D", group='Boom Hunter', inline = "p3")
+iWeek3       = input(4.0,"W", group='Boom Hunter', inline = "p3")
+iMonth3      = input(3.0,"M", group='Boom Hunter', inline = "p3")
+
+bFibSmoothing = input.bool(false, "Fib Smoothing", group = "Boom Hunter")
+
+LPPeriod    = input.float(.5, 'LPPeriod (custom)', step=0.05, group='Boom Hunter')
+lb          = input.int(157, 'lookback (custom)', step = 1, group='Boom Hunter')
+trx         = input.float(1.0, 'Tr (custom)', step=0.1, group='Boom Hunter')
+
+if preset == "Preset 1"
+    LPPeriod    := 0.52
+    lb          := 26
+    trx         := 1.0
+else if preset == "Preset 2"  
+    LPPeriod    := math.pi
+    lb          := 157
+    trx         := 1.0
+    iIntraday   := iIntraday2
+    iDay        := iDay2
+    iWeek       := iWeek2
+    iMonth      := iMonth2
+else if preset == "Preset 3"  
+    LPPeriod    := 5.1
+    lb          := 254
+    trx         := 1.0
+    iIntraday   := iIntraday3
+    iDay        := iDay3
+    iWeek       := iWeek3
+    iMonth      := iMonth3
+
+if bFibSmoothing
+    trx := 1.61803398502
+
+// Detect time interval
+tf_sec = timeframe.in_seconds()
+multiplier = tf_sec <= 3600 ? iIntraday : tf_sec <= 3600*24 ? iDay : tf_sec <= 3600*60*7 ? iWeek : iMonth
+
+LPPeriod := LPPeriod * multiplier
+
+// This function has been published from veryfid several time, i.e. Boom Hunter Pro
+// Source code below of eot_func is from "Boom Hunter - Entry Point Screener Alerts"
+eot_func(src, LPPeriod2, lb, trx) => // aka Boom Hunter Oscillator
+    alpha1222 = 0.00
+    HP2 = 0.00
+    a12 = 0.00
+    b12 = 0.00
+    c12 = 0.00
+    c22 = 0.00
+    c32 = 0.00
+    Filt2 = 0.00
+    Peak2 = 0.00
+    X2 = 0.00
+    Quotient3 = 0.00
+    Quotient4 = 0.00
+    pi = math.pi
+    K12 = 0
+
+    alpha1222 := (math.cos(.707 * trx * pi / lb) + math.sin(.707 * trx * pi / lb) - 1) / math.cos(.707 * trx * pi / lb)
+    HP2 := (1 - alpha1222 / 2) * (1 - alpha1222 / 2) * (src - 2 * nz(src[1]) + nz(src[2])) + 2 * (1 - alpha1222) * nz(HP2[1]) - (1 - alpha1222) * (1 - alpha1222) * nz(HP2[2])
+
+//SuperSmoother Filter
+    a12 := math.exp(-1.414 * pi / LPPeriod2)
+    b12 := 2 * a12 * math.cos(1.414 * pi / LPPeriod2)
+    c22 := b12
+    c32 := -a12 * a12
+    c12 := 1 - c22 - c32
+    Filt2 := c12 * (HP2 + nz(HP2[1])) / 2 + c22 * nz(Filt2[1]) + c32 * nz(Filt2[2])
+
+//Fast Attack - Slow Decay Algorithm
+    Peak2 := .991 * nz(Peak2[1])
+    if math.abs(Filt2) > Peak2
+        Peak2 := math.abs(Filt2)
+        Peak2
+
+//Normalized Roofing Filter
+    if Peak2 != 0
+        X2 := Filt2 / Peak2
+        X2
+
+    Quotient3 := (X2 + K12) / (K12 * X2 + 1) 
+    Quotient3 := Quotient3 * 5 + 5 // scaling for compatibility reasons with BHX
+    Quotient3
+
+
+BHX         = eot_func(src, LPPeriod, lb, trx)
+pbh         = plot(BHX, color=color.yellow, linewidth = 2)
+
+bordercol   = BHX > 9.9 ? color.red : BHX < 0.1 ? color.red : na
+pbhlimit    = plot(BHX, color = bordercol, style = plot.style_line , linewidth = 2, title ="channel limit")
+
+// Kernel Functions (kreg) -------------------------------------------------------------------------------------------------------------------------------------------------------------
+import veryfid/KernelFunctionsFilters/2
+// Source code of lib published in TV
+
+useKernelSmoothing  = input.bool(true, "Apply smoothing",group='Kreg', inline = "base")
+
+h                   = input.int(9, 'Kreg Len', minval=2,  group="Kreg", inline="kernel")
+x                   = input.int(9, 'Mod', group="Kreg", inline="kernel")
+
+c_green = color.new(color.teal, 20)
+c_red = color.new(#CC3311, 20)
+
+kernelEstimate = KernelFunctionsFilters.gaussian(BHX, h, x, useKernelSmoothing ? "Smooth" : "No Filter")
+
+// Plot
+updncolor = BHX >= kernelEstimate ? c_green : c_red
+updncolor := kernelEstimate >= kernelEstimate[1] ? c_green : c_red
+preg = plot(kernelEstimate, "kreg", color=color.new(updncolor,20), linewidth=2)
+
